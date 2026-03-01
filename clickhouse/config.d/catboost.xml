@@ -1,0 +1,6 @@
+<!-- CatBoost evaluation: point to libcatboostmodel.so (must be built from CatBoost repo and placed at project root). -->
+<!-- See: https://catboost.ai/docs/en/installation/build-native-artifacts -->
+<!-- With docker-compose, project root is mounted at /workspace, so path is /workspace/libcatboostmodel.so -->
+<clickhouse>
+    <catboost_lib_path>/workspace/libcatboostmodel.so</catboost_lib_path>
+</clickhouse>

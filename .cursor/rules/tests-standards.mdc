@@ -1,0 +1,23 @@
+---
+description: Test-first and pytest conventions
+globs: "**/test*.py,**/*_test.py,tests/**/*.py"
+alwaysApply: false
+---
+
+# Test Standards
+
+- **Naming**: `test_<module>_<behavior>.py` or `test_<function_name>`. Tests in `tests/` or beside module as `*_test.py`.
+- **Structure**: Arrange–Act–Assert; one logical assertion per test when practical.
+- **Determinism**: Use fixed random seeds for synthetic data so tests are reproducible.
+- **Integration**: Mark ClickHouse/Docker tests (e.g. `@pytest.mark.integration`); skip or require env if DB not available.
+
+```python
+# GOOD: deterministic generator test
+def test_synthetic_log_anomaly_ratio():
+    rng = np.random.default_rng(42)
+    logs = generate_logs(n=10_000, rng=rng)
+    ratio = logs["is_anomaly"].mean()
+    assert 0.18 <= ratio <= 0.22
+```
+
+- **No secrets**: Tests must not rely on real credentials; use fixtures or env-only in CI.

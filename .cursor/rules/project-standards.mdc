@@ -1,0 +1,13 @@
+---
+description: Project-wide standards, TDD, and repo conventions for Log Anomaly Detection
+alwaysApply: true
+---
+
+# Log Anomaly Detection — Project Standards
+
+- **Execution plan**: Follow `EXECUTION_PLAN.md` for phases, test-first order, and success metrics.
+- **Requirements**: Implement behavior per `Log Anomaly Detection System Requirements.md` (ClickHouse + CatBoost, 100k rows, F1 > 90%, inference < 10 ms/batch).
+- **Test-first**: Write a failing test before implementation; Red–Green–Refactor. Unit tests for pure logic; integration tests for ClickHouse/Docker.
+- **Stack**: Python 3.10+, ClickHouse v24.x+, CatBoost; Docker Compose for infra. No manual one-hot encoding — use CatBoost categoricals.
+- **Secrets**: No credentials in repo; use env vars or `.env` (already in `.gitignore`).
+- **CatBoost/ClickHouse**: Keep feature and column order identical between Python training and ClickHouse `modelEvaluate`; document and test the contract.

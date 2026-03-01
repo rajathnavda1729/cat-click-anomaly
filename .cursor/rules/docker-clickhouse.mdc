@@ -1,0 +1,12 @@
+---
+description: Docker, ClickHouse schema, and modelEvaluate usage
+globs: "**/docker*,**/*compose*.yml,**/Dockerfile*,**/*.xml"
+alwaysApply: false
+---
+
+# Docker & ClickHouse Standards
+
+- **Compose**: Single-node ClickHouse v24.x+; project root mounted at `/workspace` (model + optional libcatboostmodel.so). Optional: mount `./clickhouse/config.d` for CatBoost inference.
+- **Schema**: Table `service_logs` — `timestamp` DateTime64, `service_id` String, `endpoint` String, `status_code` UInt16, `response_time_ms` UInt32, `user_agent` String, `is_anomaly` UInt8; MergeTree ORDER BY (timestamp, service_id).
+- **CatBoost**: Use `catboostEvaluate(path_to_model, feature_1, ...)`; config `catboost_lib_path` must point to `libcatboostmodel.so` (build from CatBoost repo).
+- **View**: `anomalous_events` uses `catboostEvaluate` with same feature order as Python (service_id, endpoint, status_code, response_time_ms, user_agent). No one-hot — pass raw categoricals.

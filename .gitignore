@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Trained model (reproduce with: python train.py)
+catboost_model.bin
+
+# CatBoost C library (reproduce with: scripts/download_libcatboostmodel.sh)
+libcatboostmodel.so
+
+# CatBoost training artifacts (logs, metrics; reproduce with: python train.py)
+catboost_info/

@@ -1,0 +1,25 @@
+# Extend official ClickHouse server image with clickhouse-library-bridge
+# so catboostEvaluate() works. The official image does not include the bridge.
+#
+# Build: docker build -f docker/Dockerfile.clickhouse-with-bridge -t clickhouse-with-catboost:24.8 .
+# Then in docker-compose.yml use: image: clickhouse-with-catboost:24.8
+FROM clickhouse/clickhouse-server:24.8
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates gnupg2 dirmngr wget \
+    && mkdir -p /etc/apt/sources.list.d \
+    && GNUPGHOME=$(mktemp -d) \
+    && GNUPGHOME="$GNUPGHOME" gpg --batch --no-default-keyring \
+        --keyring /usr/share/keyrings/clickhouse-keyring.gpg \
+        --keyserver hkp://keyserver.ubuntu.com:80 \
+        --recv-keys 3a9ea1193a97b548be1457d48919f6bd2b48d754 \
+    && rm -rf "$GNUPGHOME" \
+    && echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg] https://packages.clickhouse.com/deb stable main" > /etc/apt/sources.list.d/clickhouse.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends clickhouse-library-bridge \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get autoremove -y --purge gnupg2 dirmngr wget || true
+
+USER clickhouse

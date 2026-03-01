@@ -1,0 +1,10 @@
+# Override to use a custom ClickHouse image that includes clickhouse-library-bridge,
+# so catboostEvaluate() works (fixes "Child process exited with return code 88").
+#
+# 1. Build the image first:
+#    docker build -f docker/Dockerfile.clickhouse-with-bridge -t clickhouse-with-catboost:24.8 .
+# 2. Start with this override:
+#    docker compose -f docker-compose.yml -f docker-compose.with-bridge.yml up -d --force-recreate
+services:
+  clickhouse:
+    image: clickhouse-with-catboost:24.8

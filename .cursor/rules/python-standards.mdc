@@ -1,0 +1,25 @@
+---
+description: Python coding standards and conventions
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python Standards
+
+- **Style**: PEP 8; use Ruff for lint/format. Type hints on public functions and module APIs.
+- **Docstrings**: Public modules, classes, and functions have docstrings (Google or NumPy style).
+- **Imports**: Standard library → third-party → local; one per line for non-stdlib when multiple.
+- **Error handling**: Log and re-raise or use custom exception; avoid bare `except:`.
+
+```python
+# BAD
+except Exception:
+    pass
+
+# GOOD
+except clickhouse_driver.errors.Error as e:
+    logger.exception("ClickHouse query failed")
+    raise DataLoadError("Failed to load training data") from e
+```
+
+- **Constants**: Schema names (table, columns), feature lists, and CatBoost params in one place (e.g. `config.py` or module top) so training and inference stay in sync.

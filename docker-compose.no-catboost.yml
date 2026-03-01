@@ -1,0 +1,8 @@
+# Use this if ClickHouse crashes on startup when loading the CatBoost library
+# (e.g. wrong lib arch or missing file). Start with: docker compose -f docker-compose.yml -f docker-compose.no-catboost.yml up -d
+# Once libcatboostmodel.so (aarch64 on Apple Silicon) is in place, use normal docker compose up -d.
+services:
+  clickhouse:
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - .:/workspace:ro

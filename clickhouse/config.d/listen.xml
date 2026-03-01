@@ -1,0 +1,4 @@
+<!-- Listen on all interfaces so the host can reach ClickHouse via Docker port mapping (localhost:8123, localhost:9000). -->
+<clickhouse>
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>
