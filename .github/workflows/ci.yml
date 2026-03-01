@@ -15,8 +15,8 @@ jobs:
       clickhouse:
         image: clickhouse/clickhouse-server:24.8
         env:
-          # CI: use empty password so native driver can connect without auth
-          CLICKHOUSE_PASSWORD: ""
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ci
         ports:
           - 9000:9000
           - 8123:8123
@@ -46,4 +46,5 @@ jobs:
         env:
           CLICKHOUSE_HOST: localhost
           CLICKHOUSE_PORT: 9000
-          CLICKHOUSE_PASSWORD: ""
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ci
