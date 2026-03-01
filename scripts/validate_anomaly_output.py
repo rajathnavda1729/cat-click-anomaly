@@ -16,11 +16,11 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from typing import Optional
+from typing import Optional  # noqa: E402
 
-from clickhouse_driver import Client
+from clickhouse_driver import Client  # noqa: E402
 
-from src.config import (
+from src.config import (  # noqa: E402
     ANOMALOUS_EVENTS_VIEW,
     get_clickhouse_connection_params,
 )

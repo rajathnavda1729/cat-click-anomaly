@@ -3,7 +3,7 @@
 import pytest
 from clickhouse_driver import Client
 
-from src.config import SERVICE_LOGS_TABLE, get_clickhouse_connection_params
+from src.config import SERVICE_LOGS_TABLE
 from src.schema import ensure_service_logs_table
 from ingest import run_ingest
 

@@ -1,10 +1,9 @@
 """Data loading and feature contract tests for training pipeline."""
 
 import pytest
-import pandas as pd
 from clickhouse_driver import Client
 
-from src.config import FEATURE_COLUMNS, CAT_FEATURES, TARGET, SERVICE_LOGS_TABLE
+from src.config import FEATURE_COLUMNS, CAT_FEATURES, TARGET
 from src.data import load_training_data
 from src.schema import ensure_service_logs_table
 

@@ -9,7 +9,6 @@ from src.config import (
     SERVICE_LOGS_TABLE,
     ANOMALOUS_EVENTS_VIEW,
     MODEL_PATH_IN_CONTAINER,
-    get_clickhouse_connection_params,
 )
 from src.schema import ensure_service_logs_table
 from src.inference import ensure_anomalous_events_view, view_exists

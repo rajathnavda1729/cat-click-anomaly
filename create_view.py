@@ -12,7 +12,7 @@ def main() -> int:
     try:
         client = Client(**get_clickhouse_connection_params())
         ensure_anomalous_events_view(client, MODEL_PATH_IN_CONTAINER)
-    except NetworkError as e:
+    except NetworkError:
         print("Could not connect to ClickHouse (connection reset or refused).", file=sys.stderr)
         print("Check:", file=sys.stderr)
         print("  1. Container is running: docker ps --filter name=cat-click-anomaly-ch", file=sys.stderr)

@@ -2,7 +2,7 @@
 
 from clickhouse_driver import Client
 
-from src.config import SERVICE_LOGS_DDL, SERVICE_LOGS_TABLE, SERVICE_LOGS_COLUMNS
+from src.config import SERVICE_LOGS_DDL, SERVICE_LOGS_TABLE
 
 
 def ensure_service_logs_table(client: Client) -> None:

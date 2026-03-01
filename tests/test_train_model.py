@@ -7,7 +7,7 @@ from catboost import CatBoostClassifier
 from sklearn.metrics import f1_score
 from clickhouse_driver import Client
 
-from src.config import FEATURE_COLUMNS, CAT_FEATURES, TARGET, MODEL_PATH
+from src.config import FEATURE_COLUMNS, CAT_FEATURES, TARGET
 from src.data import load_training_data
 from src.schema import ensure_service_logs_table
 from train import train_model
