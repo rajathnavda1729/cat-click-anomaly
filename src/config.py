@@ -7,6 +7,8 @@ from typing import Any
 CLICKHOUSE_HOST = os.environ.get("CLICKHOUSE_HOST", "localhost")
 CLICKHOUSE_PORT = int(os.environ.get("CLICKHOUSE_PORT", "9000"))
 CLICKHOUSE_HTTP_PORT = int(os.environ.get("CLICKHOUSE_HTTP_PORT", "8123"))
+# Optional: set CLICKHOUSE_PASSWORD in CI or when server requires auth (e.g. "")
+CLICKHOUSE_PASSWORD = os.environ.get("CLICKHOUSE_PASSWORD")
 
 # Table and schema (must match training and inference)
 SERVICE_LOGS_TABLE = "service_logs"
@@ -38,7 +40,10 @@ ORDER BY (timestamp, service_id)
 
 def get_clickhouse_connection_params() -> dict[str, Any]:
     """Return kwargs for clickhouse_driver.Client."""
-    return {"host": CLICKHOUSE_HOST, "port": CLICKHOUSE_PORT}
+    params: dict[str, Any] = {"host": CLICKHOUSE_HOST, "port": CLICKHOUSE_PORT}
+    if CLICKHOUSE_PASSWORD is not None:
+        params["password"] = CLICKHOUSE_PASSWORD
+    return params
 
 
 # --- Training / inference contract (column order must match CatBoost and ClickHouse modelEvaluate) ---
