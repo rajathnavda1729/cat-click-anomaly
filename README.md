@@ -56,6 +56,8 @@ See [EXECUTION_PLAN.md § 6](./EXECUTION_PLAN.md#6-production-vs-poc-how-is_anom
    export CLICKHOUSE_HOST=localhost CLICKHOUSE_PORT=9000
    ```
 
+5. **CI:** GitHub Actions runs on push/PR (Ruff + pytest with ClickHouse service). See [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
 ---
 
 ## Phase 1: Data ingestion
@@ -230,6 +232,9 @@ If you see "not found", the image has no library bridge.
 ## Project layout
 
 ```
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # GitHub Actions: Ruff + pytest (ClickHouse service)
 ├── docs/
 │   ├── CLICKHOUSE_CATBOOST_TROUBLESHOOTING.md   # Step-by-step fixes for in-DB CatBoost (reusable)
 │   ├── CONSUMING_ANOMALOUS_EVENTS.md            # How to consume and validate view output

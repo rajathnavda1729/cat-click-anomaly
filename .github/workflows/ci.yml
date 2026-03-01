@@ -1,0 +1,45 @@
+# CI: lint and tests on push / PR
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.8
+        ports:
+          - 9000:9000
+          - 8123:8123
+        options: >-
+          --health-cmd "wget -q -O- http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ruff check
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest tests/ -v
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 9000
