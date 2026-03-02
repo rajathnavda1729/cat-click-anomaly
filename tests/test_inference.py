@@ -7,7 +7,6 @@ from clickhouse_driver import Client
 from clickhouse_driver.errors import ServerException
 
 from src.config import (
-    SERVICE_LOGS_TABLE,
     SERVICE_LOGS_V2_TABLE,
     ANOMALOUS_EVENTS_VIEW,
     ANOMALOUS_EVENTS_VIEW_V2,

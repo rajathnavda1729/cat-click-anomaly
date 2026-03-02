@@ -9,7 +9,6 @@ from src.config import (
     ANOMALOUS_EVENTS_VIEW,
     ANOMALOUS_EVENTS_VIEW_V2,
     FEATURE_COLUMNS,
-    FEATURE_COLUMNS_V2,
 )
 
 
