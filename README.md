@@ -1,6 +1,6 @@
 # cat-click-anomaly
 
-High-performance log anomaly detection pipeline using **ClickHouse** for OLAP storage and **CatBoost** for native categorical gradient boosting. Features in-database inference via `modelEvaluate`.
+**v0.1.0** — High-performance log anomaly detection pipeline using **ClickHouse** for OLAP storage and **CatBoost** for native categorical gradient boosting. Features in-database inference via `catboostEvaluate`.
 
 - **Requirements:** [Log Anomaly Detection System Requirements.md](./Log%20Anomaly%20Detection%20System%20Requirements.md)
 - **Execution plan (test-first):** [EXECUTION_PLAN.md](./EXECUTION_PLAN.md)
@@ -268,5 +268,7 @@ If you see "not found", the image has no library bridge.
 │   └── test_inference.py    # View + anomaly_score; skipped if CatBoost lib not available
 └── .cursor/rules/        # Project standards (TDD, Python, Docker)
 ```
+
+**Releases** — Tagged versions (e.g. `v0.1.0`). To create a tag: `git tag v0.1.0 && git push origin v0.1.0`, then create a release from the tag in your GitHub repo.
 
 **Phase 4** — Success metrics and full-pipeline validation are in the section above; runbook: [docs/RUNBOOK.md](./docs/RUNBOOK.md).

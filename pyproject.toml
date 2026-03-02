@@ -1,3 +1,10 @@
+[project]
+name = "cat-click-anomaly"
+version = "0.1.0"
+description = "Log anomaly detection with ClickHouse and CatBoost (synthetic data, in-DB inference)"
+readme = "README.md"
+requires-python = ">=3.10"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
