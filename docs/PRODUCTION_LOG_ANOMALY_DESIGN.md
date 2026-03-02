@@ -15,6 +15,33 @@ The goals:
 
 ---
 
+## Glossary
+
+This glossary is meant for engineers, SREs, and product stakeholders to share a common vocabulary.
+
+- **ClickHouse**: Columnar OLAP database used to store logs and perform fast aggregations and model scoring.
+- **CatBoost**: Gradient-boosted trees library that natively supports categorical features; used here for anomaly scoring.
+- **catboostEvaluate**: ClickHouse SQL function that calls a CatBoost model (via the library bridge) to produce predictions for each row.
+- **Library bridge**: A sidecar HTTP process started by ClickHouse that loads the CatBoost `.bin` model and executes predictions on batches of features.
+- **Core envelope**: The normalized log schema that every service maps into (e.g. `timestamp`, `service_id`, `endpoint`, `status_code`, `latency_ms`, `log_level`, `log_signature`, `log_payload`, `is_anomaly`).
+- **`service_logs_v2`**: The main v2 ClickHouse table in this repo that stores normalized, per-request log events with contextual features.
+- **`log_features_1m`**: AggregatingMergeTree table that stores 1‑minute aggregates per `service_id` (e.g. total requests, error requests) used for velocity and surge calculations.
+- **Materialized View (MV)**: ClickHouse object that reacts to inserts into `service_logs_v2` and updates `log_features_1m` automatically.
+- **`anomalous_events_v2`**: Adaptive ClickHouse view that joins `service_logs_v2` with `log_features_1m`, computes contextual features (velocity, error acceleration, is_surge), and calls `catboostEvaluate` to produce `anomaly_score`.
+- **`log_signature`**: A normalized, low-cardinality representation of a log event that abstracts away dynamic details (IDs, exact messages) and focuses on the pattern (e.g. `[PAYMENTS]:[TimeoutException]:[call_gateway]`).
+- **`log_payload`**: The raw or semi-structured error message / stack trace; kept for debugging and future text embeddings but not directly passed into `catboostEvaluate`.
+- **`error_kind`**: High-level error category such as `TIMEOUT`, `CONNECTION`, `VALIDATION`, `DEPENDENCY_FAILURE`; derived from exception types, messages, or error codes.
+- **`throughput_velocity`**: A feature that compares the current minute’s request volume to the recent past (10‑minute sliding window), used to detect surges in traffic.
+- **`error_acceleration`**: A feature that compares the current error rate to the error rate 10 minutes ago to capture how quickly errors are ramping up.
+- **`is_surge`**: A binary flag derived from the Z‑score of per-minute request counts over a trailing window (e.g. 60 minutes) to indicate an unusual spike in traffic.
+- **`FEATURE_COLUMNS_V2`**: Ordered list of model features used in v2 training and inference (numeric first, then categorical), ensuring ClickHouse and Python see the same feature order.
+- **Scenario – `festival`**: Synthetic scenario where traffic volume surges (≈10×) over a short window but requests are healthy (status 200); used to verify the system does not overreact to benign surges.
+- **Scenario – `silent_failure`**: Synthetic scenario where volume is normal but a new / rare `log_signature` appears (e.g. unexpected empty result); used to test the model’s ability to detect subtle anomalies.
+- **Training view**: A dedicated ClickHouse view/table that defines exactly which events (and labels) are used for training, separate from the live log table.
+- **TTL (Time To Live)**: Retention configuration in ClickHouse specifying how long data is kept (e.g. `log_features_1m` retains only 8–14 days of aggregates).
+
+---
+
 ## 1. Core Envelope Schema
 
 In production, don’t try to make every log identical. Instead, define a **minimal core schema** that every service must emit, and allow extra fields per service.
@@ -347,4 +374,112 @@ This design keeps a clear separation between:
 - **Modeling and inference** (Python + ClickHouse).
 
 which is what you want for a maintainable, production-grade anomaly detection system. 
+
+---
+
+## 10. Current POC Execution Flow (How the Model Is Invoked)
+
+This section summarizes **how the current repo works today**, end-to-end, and how the model is invoked on each log row.
+
+### 10.1. Training path
+
+1. **Ingest v2 logs** into `service_logs_v2`:
+   - `python ingest.py -n 50000 --scenario normal`
+   - Optionally `--scenario festival` / `--scenario silent_failure` for scenario coverage.
+2. **Train the v2 model**:
+   - `python train.py`
+   - This:
+     - Calls `load_training_data(use_v2=True)` to read from `service_logs_v2`.
+     - Uses `FEATURE_COLUMNS_V2` (8 numeric+categorical features) as `X`.
+     - Uses `TARGET = "is_anomaly"` as `y`.
+     - Fits a `CatBoostClassifier` (no `text_features`).
+     - Saves `catboost_model_v2.bin` in the project root.
+3. The model file is mounted into the ClickHouse container as:
+   - `MODEL_PATH_V2_IN_CONTAINER = "/workspace/catboost_model_v2.bin"`.
+
+### 10.2. Feature store and aggregates
+
+When `service_logs_v2` is populated:
+
+1. A **materialized view** writes into `log_features_1m`:
+   - For each `INSERT` into `service_logs_v2`, it:
+     - Buckets `timestamp` to `toStartOfMinute(timestamp)` as `window_start`.
+     - Aggregates by `(service_id, window_start, hour_of_day)` into:
+       - `total_reqs = countState()`.
+       - `error_reqs = countIfState(status_code >= 500)`.
+2. `log_features_1m` is an `AggregatingMergeTree` table storing **aggregate states** per minute.
+3. At query time, these are merged via `countMerge` / `countIfMerge` to recover:
+   - Per-minute `total_reqs`.
+   - Per-minute `error_reqs`.
+
+### 10.3. Adaptive v2 view (`anomalous_events_v2`)
+
+The `src/inference.py` module defines `get_anomalous_events_view_v2_ddl` which creates:
+
+- A view `anomalous_events_v2` with the following structure:
+  1. **CTEs:**
+     - `merged`: merges aggregate states from `log_features_1m`.
+     - `with_rates`: adds `error_rate = error_reqs / total_reqs`.
+     - `with_velocity`: computes, per `(service_id, window_start)`:
+       - `throughput_velocity` over a 10-minute sliding window (`ROWS BETWEEN 9 PRECEDING AND CURRENT ROW`).
+       - `error_acceleration` as `error_rate_current / error_rate_10mins_ago` using `lagInFrame`.
+       - `is_surge` as a Z-score over 60 minutes of `total_reqs`.
+  2. **Main SELECT:**
+     - Reads each row `l` from `service_logs_v2`.
+     - LEFT JOINs `with_velocity` on:
+       - `l.service_id = b.service_id`
+       - `toStartOfMinute(l.timestamp) = b.window_start`.
+     - Produces per-row features:
+       - `status_code`
+       - `response_time_ms`
+       - `throughput_velocity` (coalesced to `1` if missing)
+       - `error_acceleration` (coalesced to `0` if missing)
+       - `hour_of_day`
+       - `service_id`
+       - `endpoint`
+       - `log_signature`
+     - Calls:
+       - `catboostEvaluate(model_path, status_code, response_time_ms, throughput_velocity, error_acceleration, hour_of_day, service_id, endpoint, log_signature) AS anomaly_score`.
+
+**Important:** There is **no persisted anomaly_score table**. The model is invoked **on each row returned by any query against `anomalous_events_v2`**.
+
+- Every `SELECT ... FROM anomalous_events_v2`:
+  - Reads raw per-log data.
+  - Joins in per-minute context.
+  - Computes window features.
+  - Calls `catboostEvaluate` row-wise (internally in batches) via the library bridge.
+
+### 10.4. Mermaid diagram of the current flow
+
+```mermaid
+flowchart TD
+  SA["Service A"] --> RAW["Raw logs (JSON/text)"]
+  SB["Service B"] --> RAW
+  SC["Service C"] --> RAW
+
+  RAW --> INGEST["Ingest adapters (parsers, mappers)"]
+  INGEST --> NORM["Normalized rows - core envelope"]
+
+  NORM -->|INSERT| LOGS[("service_logs_v2")]
+
+  LOGS --> MV["Materialized View v2 → log_features_1m"]
+  MV --> FEAT[("log_features_1m - 1 min aggregates")]
+
+  LOGS --> JOIN["Join per-minute aggregates + window functions"]
+  FEAT --> JOIN
+  JOIN --> FEATS["Per-row feature vector (8 features)"]
+  FEATS --> EVAL["catboostEvaluate(catboost_model_v2.bin, features...)"]
+
+  EVAL --> VIEW[("Rows with anomaly_score")]
+
+  D["Dashboards"] --> Q["SELECT ... FROM anomalous_events_v2"]
+  A["Alerts / Jobs"] --> Q
+  Q --> VIEW
+```
+
+This diagram matches the current implementation:
+
+- `train.py` → `catboost_model_v2.bin`.
+- `service_logs_v2` + `log_features_1m` + `anomalous_events_v2`.
+- `catboostEvaluate` invoked on-demand for each row returned by a query against `anomalous_events_v2`.
 
