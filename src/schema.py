@@ -2,12 +2,17 @@
 
 from clickhouse_driver import Client
 
-from src.config import SERVICE_LOGS_DDL, SERVICE_LOGS_TABLE
+from src.config import SERVICE_LOGS_DDL, SERVICE_LOGS_TABLE, SERVICE_LOGS_V2_DDL
 
 
 def ensure_service_logs_table(client: Client) -> None:
     """Create service_logs table if it does not exist."""
     client.execute(SERVICE_LOGS_DDL)
+
+
+def ensure_service_logs_v2_table(client: Client) -> None:
+    """Create service_logs_v2 table if it does not exist (v2 schema with contextual features)."""
+    client.execute(SERVICE_LOGS_V2_DDL)
 
 
 def get_table_columns(client: Client, table: str = SERVICE_LOGS_TABLE) -> list[tuple[str, str]]:

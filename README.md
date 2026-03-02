@@ -7,6 +7,7 @@
 - **Production vs POC (is_anomaly):** [EXECUTION_PLAN.md#6-production-vs-poc-how-is_anomaly-works](./EXECUTION_PLAN.md#6-production-vs-poc-how-is_anomaly-works)
 - **ClickHouse + CatBoost fixes (for other projects):** [docs/CLICKHOUSE_CATBOOST_TROUBLESHOOTING.md](./docs/CLICKHOUSE_CATBOOST_TROUBLESHOOTING.md)
 - **Consuming and validating anomaly output:** [docs/CONSUMING_ANOMALOUS_EVENTS.md](./docs/CONSUMING_ANOMALOUS_EVENTS.md)
+- **v2.0 upgrade (seasonality, surge, text):** [Log Anomaly Detection Upgrade Plan.md](./Log%20Anomaly%20Detection%20Upgrade%20Plan.md) → [EXECUTION_PLAN_V2.md](./EXECUTION_PLAN_V2.md) → **Step-by-step:** [docs/STEP_BY_STEP_V2.md](./docs/STEP_BY_STEP_V2.md)
 
 ---
 
@@ -77,7 +78,7 @@ With ClickHouse running (`docker compose up -d`):
 
 ---
 
-## Phase 2: Training (CatBoost)
+## Phase 2: Training (CatBoost, v1)
 
 With ClickHouse running and data ingested (`python ingest.py`):
 
@@ -93,7 +94,23 @@ With ClickHouse running and data ingested (`python ingest.py`):
 
 ---
 
-## Phase 3: Inference in ClickHouse (real-time scoring)
+## Phase 2b: Training v2 (contextual + signatures)
+
+After enabling v2 ingestion (`service_logs_v2`) and scenarios (see `EXECUTION_PLAN_V2.md` and `docs/STEP_BY_STEP_V2.md`):
+
+1. **Train the v2 model** (reads from `service_logs_v2`, writes `catboost_model_v2.bin`)
+   ```bash
+   python train.py
+   ```
+   - v2 feature order (8 features) is fixed in `src/config.py` (`FEATURE_COLUMNS_V2`):  
+     `status_code, response_time_ms, throughput_velocity, error_acceleration, hour_of_day, service_id, endpoint, log_signature`.
+   - `log_payload` is stored in `service_logs_v2` and surfaced in views, but **is not used directly in the ClickHouse model** because `catboostEvaluate` does not support text features. It is reserved for future **precomputed embeddings** or Python-only scoring.
+
+2. **Success:** F1 > 90% on v2 synthetic data (enforced by `tests/test_train_model.py`).
+
+---
+
+## Phase 3: Inference in ClickHouse (real-time scoring, v1)
 
 To get the `anomalous_events` view and real-time scoring in ClickHouse:
 
@@ -133,6 +150,36 @@ To get the `anomalous_events` view and real-time scoring in ClickHouse:
 **Success:** View `anomalous_events` returns `anomaly_score`; inference tests run (`pytest tests/ -v` — no skips). TRD target is &lt; 10 ms per batch for scoring.
 
 **If you skip the library:** Without `libcatboostmodel.so`, do not mount `clickhouse/config.d` (or remove that volume from `docker-compose.yml`) so ClickHouse starts; inference tests will be skipped.
+
+---
+
+## Phase 3b: Adaptive v2 view (velocity / acceleration / surge)
+
+With v2 ingestion + feature store (`log_features_1m`) enabled and a trained v2 model:
+
+1. **Create the adaptive scoring view** (joins `service_logs_v2` with `log_features_1m` and uses v2 features):
+   ```bash
+   python create_view.py
+   # creates anomalous_events_v2 using MODEL_PATH_V2_IN_CONTAINER
+   ```
+2. **Query anomalies (v2)**:
+   ```sql
+   SELECT
+     timestamp,
+     service_id,
+     endpoint,
+     throughput_velocity,
+     error_acceleration,
+     is_surge,
+     anomaly_score
+   FROM anomalous_events_v2
+   ORDER BY anomaly_score DESC
+   LIMIT 10;
+   ```
+3. **Limitations (text features):**
+   - The v2 model used in ClickHouse uses **only numeric + categorical features** (8 features listed above).
+   - `log_payload` is **not passed** into `catboostEvaluate` because the ClickHouse CatBoost bridge does not support text features. If you see `CANNOT_APPLY_CATBOOST_MODEL: Model contains text features but they aren't provided`, it means an old text-enabled model is still loaded; retrain v2 and restart ClickHouse.
+   - To use text in the future, precompute embeddings or numeric text scores into additional columns and include those numeric features in `FEATURE_COLUMNS_V2`.
 
 ---
 

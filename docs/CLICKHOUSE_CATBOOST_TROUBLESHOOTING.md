@@ -186,5 +186,6 @@ The **CatBoost C evaluation library** (`libcatboostmodel.so`) expects **float (n
 | Connection reset | Host cannot connect to ClickHouse | `listen_host` = `0.0.0.0` in `config.d/listen.xml` |
 | Exit code 88 | “Child process was exited with return code 88” | Use custom image with `clickhouse-library-bridge` or score in app |
 | Column 0 numeric | “Column 0 should be numeric to make float feature” | Put **numeric features first**, then categorical; same order in training and in `catboostEvaluate()` |
+| Text features unsupported | `CANNOT_APPLY_CATBOOST_MODEL: Model contains text features but they aren't provided` | ClickHouse CatBoost bridge does **not** support text features. Train the model with **only numeric + categorical** features; do not pass raw text columns into `catboostEvaluate()`. Keep text columns (e.g. `log_payload`) for analytics or precomputed embeddings, but strip `text_features` from training and ensure the ClickHouse model `.bin` is re-trained and the container restarted. |
 
-These steps were applied in the **cat-click-anomaly** project to get the `anomalous_events` view and in-DB scoring working; the same approach can be reused in other ClickHouse + CatBoost setups.
+These steps were applied in the **cat-click-anomaly** project to get the `anomalous_events` / `anomalous_events_v2` views and in-DB scoring working; the same approach can be reused in other ClickHouse + CatBoost setups.
